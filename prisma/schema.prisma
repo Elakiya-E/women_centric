@@ -1,0 +1,84 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Service {
+  id            String    @id @default(uuid())
+  title         String
+  description   String
+  startingPrice String
+  rating        Float
+  badge         String
+  iconName      String    // e.g. "Plane", "Train", "HeartPulse"
+  gradient      String    // e.g. "from-[#FF9E7D] to-[#E07A5F]"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  bookings      Booking[]
+}
+
+model Booking {
+  id          String   @id @default(uuid())
+  serviceId   String
+  service     Service  @relation(fields: [serviceId], references: [id])
+  name        String
+  phone       String
+  city        String
+  date        String
+  time        String
+  requirement String
+  status      String   @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Attendant {
+  id             String   @id @default(uuid())
+  name           String
+  role           String
+  experience     String
+  languages      String[]
+  rating         Float
+  certifications String[]
+  bgGradient     String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Offer {
+  id          String   @id @default(uuid())
+  title       String
+  desc        String
+  discount    String   // e.g. "15% OFF"
+  code        String   @unique
+  bgGradient  String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Article {
+  id        String   @id @default(uuid())
+  title     String
+  category  String   // e.g. "Women Safety", "Senior Citizen Care"
+  desc      String
+  readTime  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Testimonial {
+  id        String   @id @default(uuid())
+  name      String
+  location  String
+  rating    Int
+  review    String
+  initials  String
+  bgClass   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -2,25 +2,103 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #111827;
+  --primary: #6D28D9;
+  --secondary: #EC4899;
+  --accent: #F43F5E;
 }
 
-@theme inline {
+@theme {
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Premium Mesh Background */
+.mesh-grid {
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(236, 72, 153, 0.07) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(109, 40, 217, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(244, 63, 94, 0.05) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(109, 40, 217, 0.05) 0px, transparent 50%);
+  background-size: 100% 100%;
+}
+
+/* Subtle dot overlay */
+.dot-pattern {
+  background-image: radial-gradient(rgba(109, 40, 217, 0.08) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+}
+
+/* Premium Glassmorphism */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(109, 40, 217, 0.08);
+}
+
+.glass-panel-dark {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Premium Glow Utilities */
+.glow-primary {
+  box-shadow: 0 0 40px -5px rgba(109, 40, 217, 0.25);
+}
+
+.glow-secondary {
+  box-shadow: 0 0 40px -5px rgba(236, 72, 153, 0.25);
+}
+
+.glow-red {
+  box-shadow: 0 0 40px -5px rgba(239, 68, 68, 0.4);
+}
+
+/* Custom interactive gradient borders */
+.gradient-border {
+  position: relative;
+  background: linear-gradient(to right, white, white), linear-gradient(to right, #6D28D9, #EC4899);
+  background-clip: padding-box, border-box;
+  background-origin: padding-box, border-box;
+  border: 1px solid transparent;
+}
+
+.gradient-border-dark {
+  position: relative;
+  background: linear-gradient(to right, #0f172a, #0f172a), linear-gradient(to right, #6D28D9, #EC4899);
+  background-clip: padding-box, border-box;
+  background-origin: padding-box, border-box;
+  border: 1px solid transparent;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #c084fc;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a855f7;
 }
