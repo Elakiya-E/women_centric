@@ -5,14 +5,11 @@ import DashboardLayout from "@/components/DashboardLayout";
 import Link from "next/link";
 import {
   ShoppingCart,
-  CalendarCheck,
   Users,
   UserCheck,
   CheckCircle,
-  Truck,
   Star,
   TrendingUp,
-  ArrowUpRight,
   Clock,
   ExternalLink,
   RefreshCw,
@@ -29,8 +26,6 @@ import {
   Bar,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Legend,
 } from "recharts";
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
@@ -40,6 +35,24 @@ interface Booking {
   id: string; name: string; phone: string; city: string;
   date: string; time: string; requirement: string; status: string;
   createdAt: string; service: Service; attendant: Attendant | null;
+}
+
+interface AnalyticsData {
+  kpis: {
+    totalBookings: number;
+    totalCustomers: number;
+    repeatCustomers: number;
+    activeAttendants: number;
+    growthPct: number;
+    avgRating: string;
+  };
+  cityStats: { city: string; bookings: number }[];
+  topLocations: { rank: number; name: string; bookings: number; pct: number; trend: string }[];
+  repeatData: { name: string; value: number }[];
+  retentionPct: number;
+  serviceDemand: { name: string; value: number; count: number }[];
+  peakHours: { slot: string; bookings: number }[];
+  railwayStations: { station: string; city: string; bookings: number; growth: string }[];
 }
 
 // ─── Status Styles ────────────────────────────────────────────────────────────
@@ -53,54 +66,9 @@ const statusStyles: Record<string, string> = {
   Cancelled: "bg-red-100 text-red-700",
 };
 
-// ─── Analytics Dummy Data ─────────────────────────────────────────────────────
-const cityStats = [
-  { city: "Chennai",    bookings: 85,  x: 310, y: 210 },
-  { city: "Bengaluru",  bookings: 120, x: 240, y: 255 },
-  { city: "Hyderabad",  bookings: 60,  x: 255, y: 180 },
-  { city: "Coimbatore", bookings: 40,  x: 215, y: 270 },
-];
+const COLORS = ["#4f46e5", "#10b981", "#f59e0b", "#ef4444", "#6366f1", "#ec4899", "#14b8a6"];
 
-const topLocations = [
-  { rank: 1, medal: "🥇", name: "Bengaluru Airport",    bookings: 120, pct: 33.9, trend: "up" },
-  { rank: 2, medal: "🥈", name: "Chennai Central",       bookings: 85,  pct: 24.1, trend: "up" },
-  { rank: 3, medal: "🥉", name: "Coimbatore Junction",   bookings: 40,  pct: 11.3, trend: "steady" },
-];
-
-const repeatData = [
-  { name: "New Customers",    value: 67 },
-  { name: "Repeat Customers", value: 57 },
-];
-
-const railwayStations = [
-  { station: "Chennai Central",          city: "Chennai",    bookings: 85,  growth: "up" },
-  { station: "Tambaram",                 city: "Chennai",    bookings: 42,  growth: "up" },
-  { station: "Bengaluru City Junction",  city: "Bengaluru",  bookings: 120, growth: "up" },
-  { station: "Coimbatore Junction",      city: "Coimbatore", bookings: 40,  growth: "steady" },
-  { station: "Madurai Junction",         city: "Madurai",    bookings: 25,  growth: "down" },
-];
-
-const peakHours = [
-  { slot: "6 AM – 9 AM",    bookings: 120 },
-  { slot: "9 AM – 12 PM",   bookings: 80  },
-  { slot: "12 PM – 3 PM",   bookings: 60  },
-  { slot: "3 PM – 6 PM",    bookings: 90  },
-  { slot: "6 PM – 9 PM",    bookings: 150 },
-];
-const maxPeak = Math.max(...peakHours.map(p => p.bookings));
-
-const serviceData = [
-  { name: "Elderly Care",         value: 30 },
-  { name: "Hospital Assistance",  value: 25 },
-  { name: "Airport Pickup",       value: 20 },
-  { name: "Railway Pickup",       value: 15 },
-  { name: "Women Drivers",        value: 10 },
-];
-
-const COLORS = ["#4f46e5", "#10b981", "#f59e0b", "#ef4444", "#6366f1"];
-
-// ─── India Map Paths (realistic southern India paths) ─────────────────────────
-// Simple representative SVG shape for India
+// ─── Simplified India SVG path ────────────────────────────────────────────────
 const INDIA_PATH = `
   M 190 30 L 215 25 L 250 35 L 275 55 L 300 60 L 325 80 L 340 105
   L 345 130 L 340 155 L 350 180 L 345 205 L 330 225 L 310 240
@@ -110,28 +78,39 @@ const INDIA_PATH = `
   L 120 115 L 130 90 L 145 70 L 160 55 L 175 40 Z
 `;
 
+// Approximate city positions on the SVG map
+const CITY_POSITIONS: Record<string, { x: number; y: number }> = {
+  Chennai:    { x: 310, y: 280 },
+  Bengaluru:  { x: 255, y: 290 },
+  Hyderabad:  { x: 265, y: 225 },
+  Coimbatore: { x: 240, y: 310 },
+  Mumbai:     { x: 175, y: 210 },
+  Delhi:      { x: 215, y: 95  },
+  Kolkata:    { x: 320, y: 170 },
+  Pune:       { x: 195, y: 230 },
+  Madurai:    { x: 270, y: 330 },
+};
+
 // ─── Page Component ───────────────────────────────────────────────────────────
 export default function AdminDashboardPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [attendantsCount, setAttendantsCount] = useState(0);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Filters state
-  const [filterPeriod, setFilterPeriod]  = useState("This Month");
-  const [filterCity, setFilterCity]      = useState("All Cities");
+  const [filterPeriod, setFilterPeriod]   = useState("This Month");
+  const [filterCity, setFilterCity]       = useState("All Cities");
   const [filterService, setFilterService] = useState("All Services");
 
   const fetchData = async () => {
+    setLoading(true);
     try {
-      const [bookingsRes, attendantsRes] = await Promise.all([
+      const [bookingsRes, analyticsRes] = await Promise.all([
         fetch("/api/bookings"),
-        fetch("/api/attendants"),
+        fetch("/api/admin/analytics"),
       ]);
-      if (bookingsRes.ok && attendantsRes.ok) {
-        setBookings(await bookingsRes.json());
-        const att = await attendantsRes.json();
-        setAttendantsCount(att.length);
-      }
+      if (bookingsRes.ok) setBookings(await bookingsRes.json());
+      if (analyticsRes.ok) setAnalytics(await analyticsRes.json());
     } catch (err) {
       console.error("Dashboard fetch error:", err);
     } finally {
@@ -141,23 +120,32 @@ export default function AdminDashboardPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  // ── Live computed KPIs ──
-  const totalBookings     = bookings.length;
-  const todayStr          = new Date().toISOString().split("T")[0];
-  const pendingRequests   = bookings.filter(b => b.status === "Pending" || b.status === "Under Review").length;
-  const assignedRequests  = bookings.filter(b => b.status === "Assigned" || b.status === "Accepted").length;
-  const ongoingServices   = bookings.filter(b => b.status === "In Progress").length;
-  const completedServices = bookings.filter(b => b.status === "Completed").length;
+  // ── Derived values ──
+  const kpis = analytics?.kpis;
+  const cityStats      = analytics?.cityStats ?? [];
+  const topLocations   = analytics?.topLocations ?? [];
+  const repeatData     = analytics?.repeatData ?? [];
+  const retentionPct   = analytics?.retentionPct ?? 0;
+  const serviceDemand  = analytics?.serviceDemand ?? [];
+  const peakHours      = analytics?.peakHours ?? [];
+  const railwayStations = analytics?.railwayStations ?? [];
 
-  const kpis = [
-    { label: "Total Bookings",        value: totalBookings || 352,       icon: ShoppingCart,  color: "bg-purple-100 text-purple-700" },
-    { label: "Total Customers",       value: 124,                         icon: Users,         color: "bg-indigo-100 text-indigo-700" },
-    { label: "Repeat Customers",      value: 57,                          icon: RefreshCw,     color: "bg-teal-100 text-teal-700" },
-    { label: "Active Attendants",     value: attendantsCount || 22,       icon: UserCheck,     color: "bg-blue-100 text-blue-700" },
-    { label: "Booking Growth %",      value: "12%",                       icon: TrendingUp,    color: "bg-emerald-100 text-emerald-700" },
-    { label: "Customer Satisfaction", value: "4.8 / 5",                   icon: Star,          color: "bg-yellow-100 text-yellow-700" },
+  const maxPeak = Math.max(...peakHours.map(p => p.bookings), 1);
+
+  // KPI card definitions — all driven by real API data
+  const kpiCards = [
+    { label: "Total Bookings",        value: kpis?.totalBookings   ?? 0, icon: ShoppingCart, color: "bg-purple-100 text-purple-700"  },
+    { label: "Total Customers",       value: kpis?.totalCustomers  ?? 0, icon: Users,        color: "bg-indigo-100 text-indigo-700"  },
+    { label: "Repeat Customers",      value: kpis?.repeatCustomers ?? 0, icon: RefreshCw,    color: "bg-teal-100 text-teal-700"      },
+    { label: "Active Attendants",     value: kpis?.activeAttendants ?? 0, icon: UserCheck,   color: "bg-blue-100 text-blue-700"      },
+    { label: "Booking Growth %",      value: `${kpis?.growthPct ?? 0}%`, icon: TrendingUp,  color: "bg-emerald-100 text-emerald-700" },
+    { label: "Customer Satisfaction", value: kpis?.avgRating ?? "N/A",   icon: Star,        color: "bg-yellow-100 text-yellow-700"   },
   ];
 
+  // Medals for top locations
+  const medals = ["🥇", "🥈", "🥉"];
+
+  // Activity log from real bookings
   const getRecentActivity = () => {
     const logs: { text: string; time: string }[] = [];
     bookings.slice(0, 5).forEach(b => {
@@ -171,30 +159,32 @@ export default function AdminDashboardPage() {
       else
         logs.push({ text: `${b.name} status → ${b.status}`, time: `${t} today` });
     });
-    return logs.length ? logs : [{ text: "No activity recorded yet.", time: "System Idle" }];
+    return logs.length ? logs : [{ text: "No activity recorded yet.", time: "—" }];
   };
 
-  const recentActivity    = getRecentActivity();
+  const recentActivity     = getRecentActivity();
   const recentBookingsList = bookings.slice(0, 5);
 
-  // ── Helpers ──
+  // Unique cities and services for filter dropdowns (from real data)
+  const uniqueCities   = Array.from(new Set(bookings.map(b => b.city.trim()))).sort();
+  const uniqueServices = Array.from(new Set(bookings.map(b => b.service?.title).filter(Boolean))).sort();
+
   const GrowthBadge = ({ g }: { g: string }) =>
-    g === "up"   ? <span className="text-emerald-600 font-bold">▲ Up</span>
-    : g === "down" ? <span className="text-red-500 font-bold">▼ Down</span>
-    : <span className="text-gray-400">— Stable</span>;
+    g === "up"   ? <span className="text-emerald-600 font-bold text-xs">▲ Up</span>
+    : g === "down" ? <span className="text-red-500 font-bold text-xs">▼ Down</span>
+    : <span className="text-gray-400 text-xs">— Stable</span>;
 
   return (
     <DashboardLayout>
       <div className="space-y-6 pb-10">
 
-        {/* ── HEADER + FILTERS ─────────────────────────────────────────── */}
+        {/* ── HEADER + FILTERS ─────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
             <p className="text-sm text-gray-500 mt-0.5">Executive analytics — real-time operations intelligence</p>
           </div>
 
-          {/* Section 8 – Filters */}
           <div className="flex flex-wrap items-center gap-2">
             {["Today", "This Week", "This Month", "This Year"].map(p => (
               <button
@@ -214,14 +204,16 @@ export default function AdminDashboardPage() {
               onChange={e => setFilterCity(e.target.value)}
               className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-300"
             >
-              {["All Cities","Chennai","Bengaluru","Hyderabad","Coimbatore"].map(c => <option key={c}>{c}</option>)}
+              <option>All Cities</option>
+              {uniqueCities.map(c => <option key={c}>{c}</option>)}
             </select>
             <select
               value={filterService}
               onChange={e => setFilterService(e.target.value)}
               className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-300"
             >
-              {["All Services","Elderly Care","Hospital Assistance","Airport Pickup","Railway Pickup","Women Drivers"].map(s => <option key={s}>{s}</option>)}
+              <option>All Services</option>
+              {uniqueServices.map(s => <option key={s}>{s}</option>)}
             </select>
             <button
               onClick={fetchData}
@@ -232,9 +224,9 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* ── SECTION 1 – KPI CARDS ─────────────────────────────────────── */}
+        {/* ── SECTION 1 – KPI CARDS ──────────────────────────────── */}
         <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 ${loading ? "opacity-50 animate-pulse pointer-events-none" : ""}`}>
-          {kpis.map((kpi, idx) => {
+          {kpiCards.map((kpi, idx) => {
             const Icon = kpi.icon;
             return (
               <div key={idx} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col gap-2">
@@ -248,7 +240,7 @@ export default function AdminDashboardPage() {
           })}
         </div>
 
-        {/* ── SECTION 2 + 3 – INDIA MAP & TOP LOCATIONS ───────────────── */}
+        {/* ── SECTION 2 + 3 – INDIA MAP & TOP LOCATIONS ──────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           {/* India Booking Map */}
@@ -257,36 +249,38 @@ export default function AdminDashboardPage() {
               <MapPin className="h-4 w-4 text-purple-600" />
               <h2 className="font-bold text-gray-900">India Booking Map</h2>
             </div>
-            <div className="flex items-center justify-center">
-              <svg viewBox="100 20 260 380" className="w-full max-w-xs h-auto">
-                {/* India outline */}
-                <path d={INDIA_PATH} fill="#f0f0fa" stroke="#c4b5fd" strokeWidth="2" />
-                {/* City bubbles */}
-                {cityStats.map(c => (
-                  <g key={c.city}>
-                    <circle
-                      cx={c.x} cy={c.y}
-                      r={Math.max(10, Math.sqrt(c.bookings) * 1.8)}
-                      fill="#4f46e5" fillOpacity={0.25}
-                      stroke="#4f46e5" strokeWidth="1.5"
-                    />
-                    <circle cx={c.x} cy={c.y} r={4} fill="#4f46e5" />
-                    <text x={c.x + 8} y={c.y + 4} fontSize="9" fill="#374151" fontWeight="600">{c.city}</text>
-                    <text x={c.x + 8} y={c.y + 14} fontSize="8" fill="#6b7280">{c.bookings} bookings</text>
-                    <title>{c.city} – {c.bookings} bookings</title>
-                  </g>
-                ))}
-              </svg>
-            </div>
-            {/* Legend */}
-            <div className="flex flex-wrap gap-3 mt-3 justify-center">
-              {cityStats.map(c => (
-                <div key={c.city} className="flex items-center gap-1.5 text-xs text-gray-600">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500 opacity-70" />
-                  {c.city}: <strong>{c.bookings}</strong>
+            {cityStats.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">No city data available yet.</p>
+            ) : (
+              <>
+                <div className="flex items-center justify-center">
+                  <svg viewBox="100 20 260 380" className="w-full max-w-xs h-auto">
+                    <path d={INDIA_PATH} fill="#f0f0fa" stroke="#c4b5fd" strokeWidth="2" />
+                    {cityStats.map(c => {
+                      const pos = CITY_POSITIONS[c.city] || { x: 230, y: 200 };
+                      const r = Math.max(10, Math.sqrt(c.bookings) * 3);
+                      return (
+                        <g key={c.city}>
+                          <circle cx={pos.x} cy={pos.y} r={r} fill="#4f46e5" fillOpacity={0.25} stroke="#4f46e5" strokeWidth="1.5" />
+                          <circle cx={pos.x} cy={pos.y} r={4} fill="#4f46e5" />
+                          <text x={pos.x + 8} y={pos.y + 4} fontSize="9" fill="#374151" fontWeight="600">{c.city}</text>
+                          <text x={pos.x + 8} y={pos.y + 14} fontSize="8" fill="#6b7280">{c.bookings} bookings</text>
+                          <title>{c.city} – {c.bookings} bookings</title>
+                        </g>
+                      );
+                    })}
+                  </svg>
                 </div>
-              ))}
-            </div>
+                <div className="flex flex-wrap gap-3 mt-3 justify-center">
+                  {cityStats.map(c => (
+                    <div key={c.city} className="flex items-center gap-1.5 text-xs text-gray-600">
+                      <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500 opacity-70" />
+                      {c.city}: <strong>{c.bookings}</strong>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Section 3 – Top 3 Locations */}
@@ -295,35 +289,39 @@ export default function AdminDashboardPage() {
               <TrendingUp className="h-4 w-4 text-purple-600" />
               <h2 className="font-bold text-gray-900">Top 3 Locations</h2>
             </div>
-            <div className="space-y-4 flex-1">
-              {topLocations.map(loc => (
-                <div key={loc.rank} className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 hover:bg-purple-50 transition-colors">
-                  <span className="text-2xl">{loc.medal}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 text-sm truncate">{loc.name}</p>
-                    <p className="text-xs text-gray-500">{loc.bookings} bookings · {loc.pct}% of total</p>
+            {topLocations.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">No location data yet.</p>
+            ) : (
+              <div className="space-y-4 flex-1">
+                {topLocations.map((loc, i) => (
+                  <div key={loc.rank} className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 hover:bg-purple-50 transition-colors">
+                    <span className="text-2xl">{medals[i] || `#${loc.rank}`}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 text-sm truncate">{loc.name}</p>
+                      <p className="text-xs text-gray-500">{loc.bookings} bookings · {loc.pct}% of total</p>
+                    </div>
+                    <GrowthBadge g={loc.trend} />
                   </div>
-                  <GrowthBadge g={loc.trend} />
-                </div>
-              ))}
-            </div>
-
-            {/* Donut mini preview */}
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-xs text-gray-500 mb-2 font-medium">City Distribution</p>
-              <ResponsiveContainer width="100%" height={120}>
-                <BarChart data={cityStats} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="city" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Bar dataKey="bookings" fill="#4f46e5" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+                ))}
+              </div>
+            )}
+            {cityStats.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs text-gray-500 mb-2 font-medium">City Distribution</p>
+                <ResponsiveContainer width="100%" height={120}>
+                  <BarChart data={cityStats} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="city" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <Tooltip />
+                    <Bar dataKey="bookings" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ── SECTION 4 + 7 – REPEAT CUSTOMER DONUT & SERVICE DEMAND ──── */}
+        {/* ── SECTION 4 + 7 – REPEAT CUSTOMERS & SERVICE DEMAND ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           {/* Section 4 – Repeat Customer Donut */}
@@ -335,15 +333,7 @@ export default function AdminDashboardPage() {
             <div className="flex items-center gap-6">
               <ResponsiveContainer width="55%" height={200}>
                 <PieChart>
-                  <Pie
-                    data={repeatData}
-                    dataKey="value"
-                    innerRadius={55}
-                    outerRadius={85}
-                    paddingAngle={3}
-                    startAngle={90}
-                    endAngle={-270}
-                  >
+                  <Pie data={repeatData} dataKey="value" innerRadius={55} outerRadius={85} paddingAngle={3} startAngle={90} endAngle={-270}>
                     {repeatData.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
                   </Pie>
                   <Tooltip />
@@ -361,7 +351,7 @@ export default function AdminDashboardPage() {
                 ))}
                 <div className="mt-1 p-2 bg-teal-50 rounded-lg">
                   <p className="text-xs text-teal-700 font-semibold">Retention Rate</p>
-                  <p className="text-xl font-extrabold text-teal-800">46%</p>
+                  <p className="text-xl font-extrabold text-teal-800">{retentionPct}%</p>
                 </div>
               </div>
             </div>
@@ -373,73 +363,81 @@ export default function AdminDashboardPage() {
               <CheckCircle className="h-4 w-4 text-emerald-600" />
               <h2 className="font-bold text-gray-900">Service Demand</h2>
             </div>
-            <div className="flex items-start gap-4">
-              <ResponsiveContainer width="55%" height={200}>
-                <PieChart>
-                  <Pie data={serviceData} dataKey="value" outerRadius={85} paddingAngle={2}>
-                    {serviceData.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex flex-col gap-2 flex-1">
-                {serviceData.map((s, i) => (
-                  <div key={s.name} className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i] }} />
-                      <span className="text-xs text-gray-600">{s.name}</span>
+            {serviceDemand.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">No service data yet.</p>
+            ) : (
+              <div className="flex items-start gap-4">
+                <ResponsiveContainer width="55%" height={200}>
+                  <PieChart>
+                    <Pie data={serviceDemand} dataKey="value" outerRadius={85} paddingAngle={2}>
+                      {serviceDemand.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-col gap-2 flex-1">
+                  {serviceDemand.map((s, i) => (
+                    <div key={s.name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                        <span className="text-xs text-gray-600 truncate max-w-[120px]">{s.name}</span>
+                      </div>
+                      <span className="text-xs font-bold text-gray-800">{s.value}%</span>
                     </div>
-                    <span className="text-xs font-bold text-gray-800">{s.value}%</span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* ── SECTION 5 – RAILWAY STATIONS ─────────────────────────────── */}
+        {/* ── SECTION 5 – RAILWAY STATIONS ─────────────────────────── */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center gap-2">
             <Train className="h-4 w-4 text-purple-600" />
-            <h2 className="font-bold text-gray-900">Top Railway Stations</h2>
+            <h2 className="font-bold text-gray-900">Top Booking Stations</h2>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">#</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Railway Station</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">City</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Bookings</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Growth</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {railwayStations.map((s, i) => (
-                  <tr key={s.station} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-5 py-3 text-xs text-gray-400 font-mono">{i + 1}</td>
-                    <td className="px-5 py-3 text-sm font-semibold text-gray-900">{s.station}</td>
-                    <td className="px-5 py-3 text-sm text-gray-600">{s.city}</td>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 rounded-full bg-indigo-200 w-20 overflow-hidden">
-                          <div
-                            className="h-2 rounded-full bg-indigo-500"
-                            style={{ width: `${(s.bookings / 120) * 100}%` }}
-                          />
-                        </div>
-                        <span className="text-sm font-bold text-gray-900">{s.bookings}</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3"><GrowthBadge g={s.growth} /></td>
+          {railwayStations.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">No station data yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">#</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Station</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">City</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Bookings</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Growth</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {railwayStations.map((s, i) => (
+                    <tr key={s.station} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-5 py-3 text-xs text-gray-400 font-mono">{i + 1}</td>
+                      <td className="px-5 py-3 text-sm font-semibold text-gray-900">{s.station}</td>
+                      <td className="px-5 py-3 text-sm text-gray-600">{s.city}</td>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 rounded-full bg-indigo-200 w-20 overflow-hidden">
+                            <div
+                              className="h-2 rounded-full bg-indigo-500"
+                              style={{ width: `${(s.bookings / Math.max(...railwayStations.map(r => r.bookings), 1)) * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-sm font-bold text-gray-900">{s.bookings}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3"><GrowthBadge g={s.growth} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
-        {/* ── SECTION 6 – PEAK HOURS HEATMAP ──────────────────────────── */}
+        {/* ── SECTION 6 – PEAK HOURS HEATMAP ──────────────────────── */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
           <div className="flex items-center gap-2 mb-5">
             <Clock className="h-4 w-4 text-purple-600" />
@@ -448,8 +446,8 @@ export default function AdminDashboardPage() {
           </div>
           <div className="grid grid-cols-5 gap-3">
             {peakHours.map(slot => {
-              const intensity = slot.bookings / maxPeak;
-              const isBusiest = slot.bookings === maxPeak;
+              const intensity = maxPeak > 0 ? slot.bookings / maxPeak : 0;
+              const isBusiest = slot.bookings === maxPeak && slot.bookings > 0;
               return (
                 <div
                   key={slot.slot}
@@ -474,9 +472,8 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* ── EXISTING: Recent Bookings + Activity Feed ─────────────────── */}
+        {/* ── EXISTING: Recent Bookings + Activity Feed ──────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Bookings */}
           <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
               <h2 className="font-bold text-gray-900">Recent Booking Requests</h2>
@@ -532,7 +529,6 @@ export default function AdminDashboardPage() {
             )}
           </div>
 
-          {/* Activity Feed */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
               <h2 className="font-bold text-gray-900">Recent Operations Log</h2>
