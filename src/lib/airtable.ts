@@ -1,11 +1,21 @@
 import Airtable from "airtable";
 
-const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(
-  process.env.AIRTABLE_BASE_ID as string
-);
+// Get Airtable base instance (lazy initialization)
+function getBase() {
+  if (!process.env.AIRTABLE_API_KEY) {
+    throw new Error('AIRTABLE_API_KEY is not defined');
+  }
+  if (!process.env.AIRTABLE_BASE_ID) {
+    throw new Error('AIRTABLE_BASE_ID is not defined');
+  }
+  return new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(
+    process.env.AIRTABLE_BASE_ID as string
+  );
+}
 
 /** Fetch all service records */
 export async function getServices(): Promise<any[]> {
+  const base = getBase();
   const tableId = process.env.AIRTABLE_SERVICES_TABLE as string;
   if (!tableId) throw new Error('AIRTABLE_SERVICES_TABLE is not defined');
   const records = await base(tableId).select({ view: 'Grid view' }).all();
@@ -30,6 +40,7 @@ export interface BookingPayload {
 
 /** Insert a new booking record */
 export async function createBooking(data: BookingPayload): Promise<any> {
+  const base = getBase();
   const tableId = process.env.AIRTABLE_BOOKINGS_TABLE as string;
   if (!tableId) throw new Error('AIRTABLE_BOOKINGS_TABLE is not defined');
   const record = await base(tableId).create({
