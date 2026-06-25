@@ -95,9 +95,7 @@ export async function PATCH(
           certificationsArray = parsed;
         }
       }
-
       const coords = getCityCoords(registration.city);
-
       result = await prisma.$transaction(async (tx) => {
         // 1. Update registration status
         const updatedReg = await tx.attendantRegistration.update({
