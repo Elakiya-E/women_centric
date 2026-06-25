@@ -4,8 +4,9 @@ import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { 
   Search, MapPin, Check, X, FileText, Phone, Mail, Calendar, 
-  Award, SlidersHorizontal, Eye, Download, RefreshCw, AlertCircle, FileCheck, Languages
+  Award, SlidersHorizontal, Eye, Download, RefreshCw, AlertCircle, FileCheck, Languages, Star
 } from "lucide-react";
+import { ATTENDANT_SERVICE_OPTIONS, ALL_CITIES, WORKING_DAYS } from "@/lib/serviceData";
 
 type AttStatus = "Available" | "Busy" | "On Duty" | "Offline";
 
@@ -227,7 +228,8 @@ export default function ManageAttendantsPage() {
   // Compute unique working hours options for filter
   const workingHoursOptions = React.useMemo(() => {
     const hrs = attendants
-      .map((a) => a.workingHours)
+      .filter((a) => a.availableFrom && a.availableTo)
+      .map((a) => `${a.availableFrom} - ${a.availableTo}`)
       .filter((h) => typeof h === "string" && h.trim() !== "");
     return Array.from(new Set(hrs));
   }, [attendants]);
