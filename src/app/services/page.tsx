@@ -10,6 +10,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { ALL_CITIES } from "@/lib/serviceData";
 
 // Icon mapper
 const getIcon = (iconName: string) => {
@@ -31,16 +32,6 @@ const CATEGORIES = [
   { id: "lifestyle", name: "Event & Lifestyle", icon: Mic },
 ];
 
-const getCategoryForService = (title: string) => {
-  const t = title.toLowerCase();
-  if (t.includes("tailor") || t.includes("natal") || t.includes("hospital") || t.includes("nursing") || t.includes("elderly")) return "home-care";
-  if (t.includes("repair") || t.includes("appliance")) return "repair";
-  if (t.includes("security") || t.includes("hostel") || t.includes("jewellery") || t.includes("guard")) return "security";
-  if (t.includes("travel") || t.includes("airport") || t.includes("railway")) return "travel";
-  if (t.includes("event") || t.includes("domestic") || t.includes("driver")) return "lifestyle";
-  return "home-care";
-};
-
 export default function ServicesPage() {
   const router = useRouter();
   const [services, setServices] = useState<any[]>([]);
@@ -52,20 +43,30 @@ export default function ServicesPage() {
   const [selectedCity, setSelectedCity] = useState("All Cities");
 
   useEffect(() => {
-    fetch("/api/services")
-      .then(r => r.json())
-      .then(data => {
-        setServices(data);
+    const loadServices = async () => {
+      try {
+        const res = await fetch("/api/services");
+        if (!res.ok) {
+          console.error("Failed to fetch services, status", res.status);
+          setServices([]);
+          return;
+        }
+        const data = await res.json();
+        const servicesArray = Array.isArray(data) ? data : (data?.services ?? []);
+        setServices(servicesArray);
+      } catch (err) {
+        console.error("Failed to load services:", err);
+        setServices([]);
+      } finally {
         setLoading(false);
-      })
-      .catch(err => {
-        console.error("Failed to load services", err);
-        setLoading(false);
-      });
+      }
+    };
+    loadServices();
   }, []);
 
   const getBadgeStyle = (badge: string) => {
     switch (badge) {
+      case "Premium": return "bg-amber-100 text-amber-800 border-amber-300 font-extrabold shadow-sm bg-gradient-to-r from-yellow-100 to-amber-200";
       case "Popular": return "bg-purple-100 text-purple-700 border-purple-200";
       case "Trending": return "bg-pink-100 text-pink-700 border-pink-200";
       case "Freshly Added": return "bg-amber-100 text-amber-700 border-amber-200";
@@ -73,8 +74,8 @@ export default function ServicesPage() {
     }
   };
 
-  const filteredServices = services.filter(service => {
-    const matchesCategory = activeCategory === "all" || getCategoryForService(service.title) === activeCategory;
+  const filteredServices = (Array.isArray(services) ? services : []).filter(service => {
+    const matchesCategory = activeCategory === "all" || service.categorySlug === activeCategory;
     const matchesSearch = service.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           service.description.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -119,17 +120,9 @@ export default function ServicesPage() {
                   className="bg-transparent border-none outline-none text-sm font-medium text-slate-700 cursor-pointer"
                 >
                   <option>All Cities</option>
-                  <option>Bengaluru</option>
-                  <option>Chennai</option>
-                  <option>Hyderabad</option>
-                  <option>Coimbatore</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl">
-                <select className="bg-transparent border-none outline-none text-sm font-medium text-slate-700 cursor-pointer">
-                  <option>Availability: All</option>
-                  <option>Available Today</option>
-                  <option>This Week</option>
+                  {ALL_CITIES.map(city => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -172,6 +165,9 @@ export default function ServicesPage() {
               <AnimatePresence>
                 {filteredServices.map((service) => {
                   const IconComponent = getIcon(service.iconName);
+                  const isAvailable = selectedCity === "All Cities" || 
+                    (service.availability?.cities && service.availability.cities.includes(selectedCity));
+                  
                   return (
                     <motion.div
                       layout
@@ -180,13 +176,21 @@ export default function ServicesPage() {
                       exit={{ opacity: 0, scale: 0.9 }}
                       transition={{ duration: 0.2 }}
                       key={service.id}
-                      className="bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full group"
+                      className={`bg-white rounded-3xl overflow-hidden border transition-all duration-300 flex flex-col h-full group ${
+                        service.isPremium || service.slug === "long-distance-driver"
+                          ? "border-amber-400 shadow-md ring-1 ring-amber-400/20"
+                          : "border-slate-100 shadow-sm"
+                      } hover:shadow-xl hover:-translate-y-1`}
                     >
                       {/* Visual Header / Banner */}
                       <div className={`h-40 bg-gradient-to-r ${service.gradient} p-6 relative flex items-end justify-between`}>
                         <div className="absolute top-4 left-4">
-                          <span className={`text-xs font-bold px-3 py-1 rounded-full border shadow-sm ${getBadgeStyle(service.badge)}`}>
-                            {service.badge}
+                          <span className={`text-xs font-bold px-3 py-1 rounded-full border shadow-sm ${
+                            service.isPremium || service.slug === "long-distance-driver"
+                              ? getBadgeStyle("Premium")
+                              : getBadgeStyle(service.badge)
+                          }`}>
+                            {service.isPremium || service.slug === "long-distance-driver" ? "Premium" : service.badge}
                           </span>
                         </div>
                         
@@ -216,11 +220,23 @@ export default function ServicesPage() {
                               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Starting Price</p>
                               <p className="text-xl font-black text-primary">{service.startingPrice}</p>
                             </div>
-                            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">✓ Available</span>
+                            
+                            {isAvailable ? (
+                              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">
+                                ✓ Available
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100">
+                                ✕ Unavailable in your city
+                              </span>
+                            )}
                           </div>
 
                           <div className="flex gap-2">
-                            <button className="flex-1 bg-slate-50 text-slate-700 font-bold px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-100 transition-colors text-sm">
+                            <button 
+                              onClick={() => router.push(`/services/${service.slug}`)}
+                              className="flex-1 bg-slate-50 text-slate-700 font-bold px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-100 transition-colors text-sm"
+                            >
                               Learn More
                             </button>
                             <button

@@ -12,6 +12,8 @@ export default function AttendantApprovalsPage() {
   const [selectedProfile, setSelectedProfile] = useState<any>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [verification, setVerification] = useState<any>(null);
+  const [verificationLoading, setVerificationLoading] = useState(false);
   const [showRejectInput, setShowRejectInput] = useState(false);
 
   const fetchPending = async () => {
@@ -30,6 +32,27 @@ export default function AttendantApprovalsPage() {
     fetchPending();
   }, []);
 
+  // Fetch verification data when a profile is selected
+  useEffect(() => {
+    if (selectedProfile) {
+      const fetchVerification = async () => {
+        setVerificationLoading(true);
+        try {
+          const res = await fetch(`/api/attendant-registration/${selectedProfile.id}/verification`);
+          const data = await res.json();
+          setVerification(data);
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setVerificationLoading(false);
+        }
+      };
+      fetchVerification();
+    } else {
+      setVerification(null);
+    }
+  }, [selectedProfile]);
+
   const handleApprove = async (id: string) => {
     setActionLoading(true);
     try {
@@ -46,6 +69,35 @@ export default function AttendantApprovalsPage() {
       }
     } catch (error) {
       console.error(error);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleVerificationChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setVerification((prev: any) => ({
+      ...prev,
+      [field]: e.target.checked,
+    }));
+  };
+
+  const saveVerification = async (id: string) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/attendant-registration/${id}/verification`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(verification),
+      });
+      if (!res.ok) {
+        alert("Failed to save verification");
+      } else {
+        // Refresh pending list to reflect any status changes
+        fetchPending();
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error saving verification");
     } finally {
       setActionLoading(false);
     }
@@ -251,6 +303,60 @@ export default function AttendantApprovalsPage() {
                     </div>
                   </div>
 
+{/* Verification Checklist */}
+<div className="bg-white border border-gray-100 p-5 rounded-xl shadow-sm mb-4">
+  <h4 className="font-bold text-gray-800 mb-4 flex items-center">
+    <AlertCircle className="h-5 w-5 mr-2 text-primary" />
+    Verification Checklist
+  </h4>
+  <div className="grid grid-cols-2 gap-4">
+    <label className="flex items-center space-x-2">
+      <input type="checkbox" checked={verification?.bgvAadhaarVerified || false} onChange={handleVerificationChange('bgvAadhaarVerified')} />
+      <span>Aadhaar Verified</span>
+    </label>
+    <label className="flex items-center space-x-2">
+      <input type="checkbox" checked={verification?.bgvPanVerified || false} onChange={handleVerificationChange('bgvPanVerified')} />
+      <span>PAN Verified</span>
+    </label>
+    <label className="flex items-center space-x-2">
+      <input type="checkbox" checked={verification?.bgvPoliceVerified || false} onChange={handleVerificationChange('bgvPoliceVerified')} />
+      <span>Police Verified</span>
+    </label>
+    <label className="flex items-center space-x-2">
+      <input type="checkbox" checked={verification?.bgvCriminalBgCheck || false} onChange={handleVerificationChange('bgvCriminalBgCheck')} />
+      <span>Criminal Background Check</span>
+    </label>
+    <label className="flex items-center space-x-2">
+      <input type="checkbox" checked={verification?.bgvNeighbourhoodEnquiry || false} onChange={handleVerificationChange('bgvNeighbourhoodEnquiry')} />
+      <span>Neighbourhood Enquiry</span>
+    </label>
+    <label className="flex items-center space-x-2">
+      <input type="checkbox" checked={verification?.bgvAddressVerified || false} onChange={handleVerificationChange('bgvAddressVerified')} />
+      <span>Address Verified</span>
+    </label>
+    <label className="flex items-center space-x-2">
+      <input type="checkbox" checked={verification?.bgvEmploymentHistoryChecked || false} onChange={handleVerificationChange('bgvEmploymentHistoryChecked')} />
+      <span>Employment History Checked</span>
+    </label>
+    <label className="flex items-center space-x-2">
+      <input type="checkbox" checked={verification?.bgvReferencesVerified || false} onChange={handleVerificationChange('bgvReferencesVerified')} />
+      <span>References Verified</span>
+    </label>
+    <label className="flex items-center space-x-2">
+      <input type="checkbox" checked={verification?.bgvExperienceVerified || false} onChange={handleVerificationChange('bgvExperienceVerified')} />
+      <span>Experience Verified</span>
+    </label>
+  </div>
+  <div className="mt-4 flex justify-end">
+    <button
+      onClick={() => saveVerification(selectedProfile.id)}
+      disabled={actionLoading}
+      className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/80"
+    >
+      {actionLoading ? "Saving..." : "Save Verification"}
+    </button>
+  </div>
+</div>
                   {/* Documents */}
                   <div className="bg-white border border-gray-100 p-5 rounded-xl shadow-sm">
                     <h4 className="font-bold text-gray-800 mb-4 flex items-center">

@@ -26,7 +26,11 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { serviceId, name, phone, city, date, time, requirement, latitude, longitude } = body;
+    const { 
+      serviceId, name, phone, city, date, time, requirement, latitude, longitude,
+      receiverName, receiverRelation, receiverGender, receiverAge, specialMedicalReqs,
+      providerPreference, acknowledgement
+    } = body;
 
     // Field validations
     if (!serviceId || typeof serviceId !== "string") {
@@ -78,6 +82,13 @@ export async function POST(request: Request) {
         longitude: typeof longitude === 'number' ? longitude : null,
         status: "Pending",
         customerId: customer?.id || null,
+        receiverName: receiverName || null,
+        receiverRelation: receiverRelation || null,
+        receiverGender: receiverGender || null,
+        receiverAge: typeof receiverAge === 'number' ? receiverAge : null,
+        specialMedicalReqs: specialMedicalReqs || null,
+        providerPreference: providerPreference || "Only Women",
+        acknowledgement: typeof acknowledgement === 'boolean' ? acknowledgement : false,
       },
       include: {
         service: true,

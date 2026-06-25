@@ -6,13 +6,14 @@
     "seed": "tsx prisma/seed.ts"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev",
+    "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "airtable": "^0.12.2",
     "date-fns": "^3.6.0",
     "framer-motion": "^12.40.0",
     "leaflet": "^1.9.4",
@@ -29,6 +30,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "prisma": "^6.19.3",

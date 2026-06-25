@@ -18,8 +18,12 @@ interface AttendantRow {
   languages: string;
   assignedServices: number;
   workingDays: string[];
-  workingHours: string;
+  availableFrom?: string;
+  availableTo?: string;
+  preferredShift?: string;
   preferredCities: string[];
+  selectedServices: string[];
+  selectedSubServices?: Record<string, string[]>;
 }
 
 interface Registration {
@@ -36,6 +40,8 @@ interface Registration {
   pinCode: string;
   emergencyContact: string;
   selectedServices: string[];
+  selectedSubServices?: Record<string, string[]>;
+  subServiceExperience?: Record<string, string>;
   yearsOfExperience: number;
   languagesKnown: string[];
   certifications?: string;
@@ -46,8 +52,16 @@ interface Registration {
   panCardBase64?: string;
   professionalCertBase64?: string;
   policeVerifBase64?: string;
+  nursingDegreeBase64?: string;
+  nursingRegCertBase64?: string;
+  physioDegreBase64?: string;
+  physioRegCertBase64?: string;
+  experienceProofBase64?: string;
+  criminalBgCheckBase64?: string;
   workingDays: string[];
-  preferredTimeSlots: string[];
+  availableFrom?: string;
+  availableTo?: string;
+  preferredWorkingShift?: string;
   preferredCities: string[];
   status: string;
   rejectionReason?: string;
@@ -93,6 +107,8 @@ export default function ManageAttendantsPage() {
   const [filterWorkingDay, setFilterWorkingDay] = useState('All');
   const [filterWorkingHours, setFilterWorkingHours] = useState('All');
   const [filterPreferredCity, setFilterPreferredCity] = useState('All');
+  const [filterPrimaryService, setFilterPrimaryService] = useState('All');
+  const [filterAvailability, setFilterAvailability] = useState('All');
 
   // Modals / Action States
   const [selectedReg, setSelectedReg] = useState<Registration | null>(null);
@@ -123,6 +139,9 @@ export default function ManageAttendantsPage() {
           };
           availability = statusMap[a.account.status] || "Offline";
         }
+        const workingHours = a.availableFrom && a.availableTo
+          ? `${a.availableFrom} - ${a.availableTo}`
+          : '';
         return {
           id: a.id,
           name: a.name,
@@ -132,8 +151,12 @@ export default function ManageAttendantsPage() {
           languages: Array.isArray(a.languages) ? a.languages.join(", ") : "",
           assignedServices: a.bookings?.length || 0,
           workingDays: a.workingDays || [],
-          workingHours: a.workingHours || "",
+          availableFrom: a.availableFrom,
+          availableTo: a.availableTo,
+          preferredShift: a.preferredWorkingShift,
           preferredCities: a.preferredCities || [],
+          selectedServices: a.selectedServices || [],
+          selectedSubServices: a.selectedSubServices,
         };
       });
 
@@ -217,10 +240,14 @@ export default function ManageAttendantsPage() {
     const matchesDay =
       filterWorkingDay === "All" || (a.workingDays && a.workingDays.includes(filterWorkingDay));
     const matchesHours =
-      filterWorkingHours === "All" || a.workingHours === filterWorkingHours;
+      filterWorkingHours === "All" || (a.availableFrom && a.availableTo && `${a.availableFrom} - ${a.availableTo}` === filterWorkingHours);
     const matchesCity =
       filterPreferredCity === "All" || (a.preferredCities && a.preferredCities.includes(filterPreferredCity));
-    return matchesSearch && matchesDay && matchesHours && matchesCity;
+    const matchesPrimaryService =
+      filterPrimaryService === "All" || (a.selectedServices && a.selectedServices.includes(filterPrimaryService));
+    const matchesAvailability =
+      filterAvailability === "All" || a.availability === filterAvailability;
+    return matchesSearch && matchesDay && matchesHours && matchesCity && matchesPrimaryService && matchesAvailability;
   });
 
   // Registrations filtering
@@ -315,7 +342,7 @@ export default function ManageAttendantsPage() {
             </div>
 
             {/* Search and Filters */}
-            <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2 md:space-y-0">
+            <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2 md:space-y-0 flex-wrap">
               {/* Search */}
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -366,6 +393,35 @@ export default function ManageAttendantsPage() {
                 <option value="Bengaluru">Bengaluru</option>
                 <option value="Coimbatore">Coimbatore</option>
                 <option value="Hyderabad">Hyderabad</option>
+                <option value="Madurai">Madurai</option>
+                <option value="Salem">Salem</option>
+                <option value="Trichy">Trichy</option>
+                <option value="Erode">Erode</option>
+                <option value="Tirunelveli">Tirunelveli</option>
+                <option value="Mysuru">Mysuru</option>
+              </select>
+              {/* Primary Service Filter */}
+              <select
+                value={filterPrimaryService}
+                onChange={(e) => setFilterPrimaryService(e.target.value)}
+                className="w-full md:w-auto px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-primary focus:ring-2 focus:ring-purple-100 outline-none bg-white text-gray-700 font-medium"
+              >
+                <option value="All">All Primary Services</option>
+                {ATTENDANT_SERVICE_OPTIONS.map((opt) => (
+                  <option key={opt.label} value={opt.label}>{opt.label}</option>
+                ))}
+              </select>
+              {/* Availability Filter */}
+              <select
+                value={filterAvailability}
+                onChange={(e) => setFilterAvailability(e.target.value)}
+                className="w-full md:w-auto px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-primary focus:ring-2 focus:ring-purple-100 outline-none bg-white text-gray-700 font-medium"
+              >
+                <option value="All">All Availability</option>
+                <option value="Available">Available</option>
+                <option value="Busy">Busy</option>
+                <option value="On Duty">On Duty</option>
+                <option value="Offline">Offline</option>
               </select>
             </div>
 
@@ -395,11 +451,13 @@ export default function ManageAttendantsPage() {
                     <thead>
                       <tr className="bg-gray-50/70 border-b border-gray-100">
                         <th className="px-5 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-5 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
                         <th className="px-5 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Working Days</th>
                         <th className="px-5 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Working Hours</th>
+                        <th className="px-5 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Preferred Shift</th>
                         <th className="px-5 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Preferred Cities</th>
-                        <th className="px-5 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-5 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Primary Service</th>
+                        <th className="px-5 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Sub Services</th>
+                        <th className="px-5 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Availability</th>
                         <th className="px-5 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Experience</th>
                         <th className="px-5 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Languages</th>
                         <th className="px-5 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Active Bookings</th>
@@ -408,46 +466,66 @@ export default function ManageAttendantsPage() {
                     <tbody className="divide-y divide-gray-50">
                       {filteredAttendants.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="px-5 py-10 text-center text-gray-400 text-sm font-medium">
+                          <td colSpan={11} className="px-5 py-10 text-center text-gray-400 text-sm font-medium">
                             No attendants found matching the query.
                           </td>
                         </tr>
                       ) : (
-                        filteredAttendants.map((a, idx) => (
-                          <tr key={a.id || idx} className="hover:bg-gray-50/50 transition-colors">
-                            <td className="px-5 py-4">
-                              <div className="flex items-center space-x-3">
-                                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold">
-                                  {a.name.charAt(0)}
+                        filteredAttendants.map((a, idx) => {
+                          const workingHours = a.availableFrom && a.availableTo
+                            ? `${a.availableFrom} - ${a.availableTo}`
+                            : '-';
+                          const subServicesList = a.selectedSubServices
+                            ? Object.values(a.selectedSubServices).flat()
+                            : [];
+                          return (
+                            <tr key={a.id || idx} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="px-5 py-4">
+                                <div className="flex items-center space-x-3">
+                                  <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold">
+                                    {a.name.charAt(0)}
+                                  </div>
+                                  <span className="text-sm font-semibold text-gray-900">{a.name}</span>
                                 </div>
-                                <span className="text-sm font-semibold text-gray-900">{a.name}</span>
-                              </div>
-                            </td>
-                            <td className="px-5 py-4">
-                              <span className="flex items-center text-sm text-gray-600 font-medium">
-                                <MapPin className="h-3.5 w-3.5 mr-1 text-gray-400 shrink-0" />{a.location}
-                              </span>
-                            </td>
-                            <td className="px-5 py-4">
-                              {a.workingDays && a.workingDays.length > 0 ? a.workingDays.join(', ') : '-'}
-                            </td>
-                            <td className="px-5 py-4">
-                              {a.workingHours || '-'}
-                            </td>
-                            <td className="px-5 py-4">
-                              {a.preferredCities && a.preferredCities.length > 0 ? a.preferredCities.join(', ') : '-'}
-                            </td>
-                            <td className="px-5 py-4">
-                              <span className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold ${statusStyles[a.availability]}`}>
-                                <span className={`inline-block w-1.5 h-1.5 rounded-full ${statusDot[a.availability]}`} />
-                                <span>{a.availability}</span>
-                              </span>
-                            </td>
-                            <td className="px-5 py-4 text-sm text-gray-600 font-medium">{a.experience}</td>
-                            <td className="px-5 py-4 text-sm text-gray-500 font-medium">{a.languages}</td>
-                            <td className="px-5 py-4 text-sm font-bold text-gray-900 text-center">{a.assignedServices}</td>
-                          </tr>
-                        ))
+                              </td>
+                              <td className="px-5 py-4">
+                                {a.workingDays && a.workingDays.length > 0 ? a.workingDays.join(', ') : '-'}
+                              </td>
+                              <td className="px-5 py-4">
+                                {workingHours}
+                              </td>
+                              <td className="px-5 py-4">
+                                {a.preferredShift || '-'}
+                              </td>
+                              <td className="px-5 py-4">
+                                {a.preferredCities && a.preferredCities.length > 0 ? a.preferredCities.join(', ') : '-'}
+                              </td>
+                              <td className="px-5 py-4">
+                                {a.selectedServices && a.selectedServices.length > 0 ? a.selectedServices[0] : '-'}
+                              </td>
+                              <td className="px-5 py-4">
+                                {subServicesList.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {subServicesList.map((sub, i) => (
+                                      <span key={i} className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded">
+                                        {sub}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : '-'}
+                              </td>
+                              <td className="px-5 py-4">
+                                <span className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold ${statusStyles[a.availability]}`}>
+                                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${statusDot[a.availability]}`} />
+                                  <span>{a.availability}</span>
+                                </span>
+                              </td>
+                              <td className="px-5 py-4 text-sm text-gray-600 font-medium">{a.experience}</td>
+                              <td className="px-5 py-4 text-sm text-gray-500 font-medium">{a.languages}</td>
+                              <td className="px-5 py-4 text-sm font-bold text-gray-900 text-center">{a.assignedServices}</td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -633,6 +711,33 @@ export default function ManageAttendantsPage() {
                             </div>
                           </div>
 
+                          {/* Sub-services */}
+                          {reg.selectedSubServices && Object.keys(reg.selectedSubServices).length > 0 && (
+                            <div>
+                              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                                <Star className="w-4 h-4 text-purple-400" />
+                                Selected Sub-services & Experience
+                              </h4>
+                              <div className="space-y-2">
+                                {Object.entries(reg.selectedSubServices).map(([service, subs]) => (
+                                  <div key={service} className="text-xs">
+                                    <span className="font-bold text-gray-700">{service}:</span>
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                      {(subs as string[]).map((sub) => (
+                                        <span key={sub} className="bg-slate-50 border border-slate-200 text-slate-700 font-semibold px-2 py-0.5 rounded">
+                                          {sub}
+                                          {reg.subServiceExperience && reg.subServiceExperience[sub] && (
+                                            <span className="text-purple-600 ml-1">({reg.subServiceExperience[sub]} years)</span>
+                                          )}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Experience & Langs */}
                           <div>
                             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
@@ -654,8 +759,16 @@ export default function ManageAttendantsPage() {
                               <span className="font-semibold text-gray-800">{reg.workingDays.join(", ")}</span>
                             </div>
                             <div>
-                              <span className="text-gray-400 font-medium block">Preferred Slots</span>
-                              <span className="font-semibold text-gray-800">{reg.preferredTimeSlots.join(", ")}</span>
+                              <span className="text-gray-400 font-medium block">Working Hours</span>
+                              <span className="font-semibold text-gray-800">{reg.availableFrom && reg.availableTo ? `${reg.availableFrom} - ${reg.availableTo}` : "Not specified"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400 font-medium block">Preferred Shift</span>
+                              <span className="font-semibold text-gray-800">{reg.preferredWorkingShift || "Not specified"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400 font-medium block">Preferred Cities</span>
+                              <span className="font-semibold text-gray-800">{reg.preferredCities.join(", ")}</span>
                             </div>
                             <div>
                               <span className="text-gray-400 font-medium block">Special Skills</span>

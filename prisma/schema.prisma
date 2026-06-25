@@ -16,9 +16,44 @@ model Service {
   badge         String
   iconName      String    // e.g. "Plane", "Train", "HeartPulse"
   gradient      String    // e.g. "from-[#FF9E7D] to-[#E07A5F]"
+  slug          String?   @unique
+  categorySlug  String?   // "home-care", "repair", "security", "travel", "lifestyle"
+  isPremium     Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime @updatedAt
   bookings      Booking[]
+  subServices   SubService[]
+  caseStudies   CaseStudy[]
+  availability  ServiceAvailability?
+}
+
+model SubService {
+  id          String   @id @default(uuid())
+  serviceId   String
+  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  price       String?
+  createdAt   DateTime @default(now())
+}
+
+model ServiceAvailability {
+  id        String   @id @default(uuid())
+  serviceId String   @unique
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  cities    String[]
+  createdAt DateTime @default(now())
+}
+
+model CaseStudy {
+  id        String   @id @default(uuid())
+  serviceId String
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  title     String
+  challenge String
+  solution  String
+  outcome   String
+  createdAt DateTime @default(now())
 }
 
 model Booking {
@@ -38,55 +73,81 @@ model Booking {
   customer    Customer?  @relation(fields: [customerId], references: [id])
   latitude    Float?
   longitude   Float?
+
+  // Phase 2: Enhanced Booking Fields
+  receiverName       String?
+  receiverRelation   String?
+  receiverGender     String?
+  receiverAge        Int?
+  specialMedicalReqs String?
+  providerPreference String?   @default("Only Women")
+  acknowledgement    Boolean   @default(false)
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
 model Attendant {
-  id             String   @id @default(uuid())
-  name           String
-  role           String
-  experience     String
-  languages      String[]
-  rating         Float
-  certifications String[]
-  bgGradient     String
-  bookings       Booking[]
-  account        AttendantAccount?
-  location       AttendantLocation?
-  notifications  Notification[]
-  sessions       SessionLog[]
+  id                     String   @id @default(uuid())
+  name                   String
+  role                   String
+  experience             String
+  languages              String[]
+  rating                 Float
+  certifications         String[]
+  bgGradient             String
+  bookings               Booking[]
+  account                AttendantAccount?
+  location               AttendantLocation?
+  notifications          Notification[]
+  sessions               SessionLog[]
 
   // New Profile Fields
-  email                 String?
-  address               String?
-  state                 String?  @default("Tamil Nadu")
-  pinCode               String?
-  emergencyContact      String?
-  profilePhotoBase64    String?
-  
+  email                  String?
+  address                String?
+  state                  String?  @default("Tamil Nadu")
+  pinCode                String?
+  emergencyContact       String?
+  profilePhotoBase64     String?
+
   // Service Specializations
-  selectedServices      String[]
+  selectedServices       String[]
+  selectedSubServices    Json?
+  subServiceExperience   Json?
+
+  // Availability & Working Preferences
+  workingDays            String[]
+  availableFrom          String?
+  availableTo            String?
+  preferredWorkingShift  String?
+  preferredCities        String[]
 
   // Uploaded Documents (base64)
-  aadhaarBase64         String?
-  aadhaarStatus         String   @default("Pending")
-  panBase64             String?
-  panStatus             String   @default("Pending")
-  dlBase64              String?
-  dlStatus              String   @default("Pending")
-  certificatesBase64    String?
-  certificatesStatus    String   @default("Pending")
-  policeVerifBase64     String?
-  policeVerifStatus     String   @default("Pending")
+  aadhaarBase64          String?
+  aadhaarStatus          String   @default("Pending")
+  panCardBase64          String?
+  panStatus              String   @default("Pending")
+  drivingLicenseBase64   String?
+  dlStatus               String   @default("Pending")
+  professionalCertBase64 String?
+  certificatesStatus     String   @default("Pending")
+  policeVerifBase64      String?
+  policeVerifStatus      String   @default("Pending")
+  nursingDegreeBase64    String?
+  nursingRegCertBase64   String?
+  physioDegreBase64      String?
+  physioRegCertBase64    String?
+  experienceProofBase64  String?
+  criminalBgCheckBase64  String?
 
-  status               AttendantStatus @default(AVAILABLE)
+  status                 AttendantStatus @default(AVAILABLE)
   availabilityPercentage Float @default(0)
-  // Verification
-  verificationStatus    String   @default("Registration Submitted")
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  // Verification
+  verificationStatus     String   @default("Registration Submitted")
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 }
 
 model Offer {
@@ -222,6 +283,15 @@ model AttendantRegistration {
 
   // Section 2 — Service Profile
   selectedServices       String[]
+  selectedSubServices    Json? // Store { serviceName: [subService1, subService2] }
+  subServiceExperience   Json? // Store { subServiceName: years }
+
+  // Section 2 — Professional Availability & Working Preferences
+  workingDays            String[]
+  availableFrom          String? // "08:00 AM" format
+  availableTo            String? // "07:00 PM" format
+  preferredWorkingShift  String? // "Morning Shift", "Afternoon Shift", "Evening Shift", "Night Shift", "Flexible"
+  preferredCities        String[]
 
   // Section 3 — Skills & Experience
   yearsOfExperience      Int
@@ -236,13 +306,26 @@ model AttendantRegistration {
   panCardBase64          String?
   professionalCertBase64 String?
   policeVerifBase64      String?
+  nursingDegreeBase64    String?
+  nursingRegCertBase64   String?
+  physioDegreBase64      String?
+  physioRegCertBase64    String?
+  experienceProofBase64  String?
+  criminalBgCheckBase64  String?
 
-  // Section 5 — Availability
-  workingDays            String[]
-  preferredTimeSlots     String[]
-  preferredCities        String[]
+  // Section 6 — Background Verification Checklist (Admin-controlled)
+  bgvAadhaarVerified            Boolean @default(false)
+  bgvPanVerified                Boolean @default(false)
+  bgvPoliceVerified             Boolean @default(false)
+  bgvCriminalBgCheck            Boolean @default(false)
+  bgvNeighbourhoodEnquiry       Boolean @default(false)
+  bgvAddressVerified            Boolean @default(false)
+  bgvEmploymentHistoryChecked   Boolean @default(false)
+  bgvReferencesVerified         Boolean @default(false)
+  bgvExperienceVerified         Boolean @default(false)
+  verificationProgress          String  @default("SUBMITTED") // SUBMITTED, IN_PROGRESS, VERIFIED, APPROVED
 
-  // Section 6/8 — Verification
+  // Section 7/8 — Registration Status & Admin Review
   status                 String   @default("Pending Approval")
   rejectionReason        String?
   adminNotes             String?
@@ -250,6 +333,24 @@ model AttendantRegistration {
   approvedAt             DateTime?
   accountStatus          String   @default("Inactive")
 
+  // Registration Step Tracking (8-step flow)
+  registrationStep       Int      @default(1) // 1-8
+
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
+}
+
+// Phase 2: Ecosystem Partners
+model PartnerEnquiry {
+  id             String   @id @default(uuid())
+  orgName        String
+  contactPerson  String
+  email          String
+  phone          String
+  orgType        String   // "Women NGO", "Nursing College", etc.
+  message        String?
+  status         String   @default("Pending") // Pending, Reviewed, Approved, Rejected
+  adminNotes     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

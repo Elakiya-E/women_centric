@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, Suspense } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Check,
@@ -12,17 +12,19 @@ import {
   Loader2,
   Clock,
   RefreshCw,
-  Users
+  Users,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import dynamicImport from "next/dynamic";
+import dynamic from "next/dynamic";
 
-const MapComponent = dynamicImport(() => import("@/components/MapComponent"), {
+const MapComponent = dynamic(() => import("@/components/MapComponent"), {
   ssr: false,
-  loading: () => <div className="h-64 w-full bg-gray-100 rounded-xl animate-pulse flex items-center justify-center text-gray-400 font-medium border border-gray-200">
-    Loading interactive map...
-  </div>,
+  loading: () => (
+    <div className="h-64 w-full bg-gray-100 rounded-xl animate-pulse flex items-center justify-center text-gray-400 font-medium border border-gray-200">
+      Loading interactive map...
+    </div>
+  ),
 });
 
 interface DBService {
@@ -80,12 +82,16 @@ export default function BookingContent() {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const res = await fetch("/api/services");
+        const res = await fetch("/api/airtable/services");
         if (res.ok) {
           const data = await res.json();
           setServicesList(data);
           if (initialServiceId) {
-            const match = data.find((s: any) => s.id === initialServiceId || s.title.toLowerCase().includes(initialServiceId.toLowerCase()));
+            const match = data.find(
+              (s: any) =>
+                s.id === initialServiceId ||
+                s.title.toLowerCase().includes(initialServiceId.toLowerCase())
+            );
             if (match) setSelectedServiceId(match.id);
             else if (data.length > 0) setSelectedServiceId(data[0].id);
           } else if (data.length > 0) {
@@ -135,8 +141,19 @@ export default function BookingContent() {
     setIsSubmitting(true);
     setSubmitError("");
     try {
-      if (!customerName || !phoneNumber || !selectedServiceId || !date || !time || !location || lat === null || lng === null) {
-        throw new Error("Please fill in all required fields and select a location on the map.");
+      if (
+        !customerName ||
+        !phoneNumber ||
+        !selectedServiceId ||
+        !date ||
+        !time ||
+        !location ||
+        lat === null ||
+        lng === null
+      ) {
+        throw new Error(
+          "Please fill in all required fields and select a location on the map."
+        );
       }
 
       if (verificationStatus === "NEW" || verificationStatus === "REJECTED") {
@@ -150,15 +167,15 @@ export default function BookingContent() {
             name: customerName,
             phone: phoneNumber,
             idDocumentType,
-            idDocumentBase64
-          })
+            idDocumentBase64,
+          }),
         });
         if (!verifyRes.ok) throw new Error("Failed to upload verification document");
       }
 
       const requirementText = `Email: ${email || "Not Provided"}. Custom requests: ${customReqs || "None"}. Address: ${location}.`;
 
-      const response = await fetch("/api/bookings", {
+      const response = await fetch("/api/airtable/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -239,18 +256,21 @@ export default function BookingContent() {
     return 0;
   };
 
-  // Render UI (same as previous page component)
   return (
     <>
       <Navbar onBookNowClick={() => {}} />
       <div className="pt-24 pb-16 bg-gray-50 min-h-screen">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-3">Book a Women Attendant Service</h1>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-3">
+              Book a Women Attendant Service
+            </h1>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Book verified women attendants for elderly care, hospital assistance, travel support and home services.
+              Book verified women attendants for elderly care, hospital assistance, travel
+              support and home services.
             </p>
           </div>
+
           {createdBooking ? (
             <div className="bg-white rounded-3xl p-6 sm:p-10 shadow-lg border border-gray-100">
               <div className="text-center mb-8">
@@ -260,11 +280,11 @@ export default function BookingContent() {
                 <h3 className="text-2xl font-bold text-gray-900">Request Submitted Successfully!</h3>
                 <p className="text-gray-500 mt-2">Your booking ID is <span className="font-mono font-bold text-gray-800">{createdBooking.id}</span></p>
               </div>
+
               <div className="bg-gray-50 rounded-2xl border border-gray-100 p-6 shadow-sm mb-8">
                 <div className="flex items-center justify-between mb-6">
                   <h4 className="font-bold text-gray-800 flex items-center gap-1.5">
-                    <Clock className="h-5 w-5 text-primary" />
-                    Live Tracking
+                    <Clock className="h-5 w-5 text-primary" /> Live Tracking
                   </h4>
                   <button
                     onClick={fetchLatestStatus}
@@ -275,6 +295,7 @@ export default function BookingContent() {
                     <span>Refresh</span>
                   </button>
                 </div>
+
                 <div className="relative border-l-2 border-gray-200 pl-6 ml-3 space-y-8">
                   {timelineSteps.map((step, idx) => {
                     const status = createdBooking?.status ?? "";
@@ -283,11 +304,13 @@ export default function BookingContent() {
                     const isCurrent = idx === currentStatusIndex;
                     return (
                       <div key={idx} className="relative">
-                        <span className={`absolute -left-9.5 top-0.5 rounded-full h-5 w-5 flex items-center justify-center border-2 ${isDone ? "bg-primary border-primary text-white" : "bg-white border-gray-200 text-gray-300"}`}>
+                        <span className={`absolute -left-9.5 top-0.5 rounded-full h-5 w-5 flex items-center justify-center border-2 ${isDone ? "bg-primary border-primary text-white" : "bg-white border-gray-200 text-gray-300"}`}
+                        >
                           {isDone ? <Check className="h-3 w-3 stroke-[3]" /> : <span className="text-[10px] font-bold">{idx + 1}</span>}
                         </span>
                         <div>
-                          <h5 className={`font-bold text-sm ${isCurrent ? "text-primary" : isDone ? "text-gray-800" : "text-gray-400"}`}>{step.label}</h5>
+                          <h5 className={`font-bold text-sm ${isCurrent ? "text-primary" : isDone ? "text-gray-800" : "text-gray-400"}`}
+                          >{step.label}</h5>
                           <p className="text-xs text-gray-500 mt-0.5">{step.desc}</p>
                         </div>
                       </div>
@@ -295,6 +318,7 @@ export default function BookingContent() {
                   })}
                 </div>
               </div>
+
               {createdBooking.attendant && (
                 <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 flex items-center space-x-4">
                   <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -315,6 +339,7 @@ export default function BookingContent() {
                   <p className="font-medium text-sm">{submitError}</p>
                 </div>
               )}
+
               <div className="p-6 sm:p-10 space-y-12">
                 {/* SECTION 1: Booking Information */}
                 <section>
@@ -337,6 +362,7 @@ export default function BookingContent() {
                     </div>
                   </div>
                 </section>
+
                 {/* SECTION 2: Select Service */}
                 <section>
                   <h2 className="text-xl font-bold text-slate-800 mb-5 pb-2 border-b flex items-center gap-2">
@@ -344,7 +370,7 @@ export default function BookingContent() {
                     Select Service
                   </h2>
                   {loadingServices ? (
-                    <div className="flex items-center gap-2 text-slate-500"><Loader2 className="w-5 h-5 animate-spin"/> Loading services...</div>
+                    <div className="flex items-center gap-2 text-slate-500"><Loader2 className="w-5 h-5 animate-spin" /> Loading services...</div>
                   ) : (
                     <div className="grid sm:grid-cols-2 gap-4">
                       {servicesList.map((service) => (
@@ -364,6 +390,7 @@ export default function BookingContent() {
                     </div>
                   )}
                 </section>
+
                 {/* SECTION 3: Location Selection */}
                 <section>
                   <h2 className="text-xl font-bold text-slate-800 mb-5 pb-2 border-b flex items-center gap-2">
@@ -377,7 +404,7 @@ export default function BookingContent() {
                         <option value="Bengaluru">Bengaluru</option>
                         <option value="Chennai">Chennai</option>
                         <option value="Hyderabad">Hyderabad</option>
-                        <option value="Coimbatore">Coimbatore</option>
+                        <option value="Coibrato">Coibrato</option>
                       </select>
                     </div>
                     <div>
@@ -403,6 +430,7 @@ export default function BookingContent() {
                     </div>
                   </div>
                 </section>
+
                 {/* SECTION 4: Schedule Service */}
                 <section>
                   <h2 className="text-xl font-bold text-slate-800 mb-5 pb-2 border-b flex items-center gap-2">
@@ -420,6 +448,7 @@ export default function BookingContent() {
                     </div>
                   </div>
                 </section>
+
                 {/* SECTION 5: Additional Requirements */}
                 <section>
                   <h2 className="text-xl font-bold text-slate-800 mb-5 pb-2 border-b flex items-center gap-2">
@@ -428,14 +457,16 @@ export default function BookingContent() {
                   </h2>
                   <textarea rows={4} value={customReqs} onChange={(e) => setCustomReqs(e.target.value)} placeholder="Any special instructions or customer notes..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none transition-all resize-none" />
                 </section>
+
                 {/* SECTION 6: Customer Verification */}
                 <section>
                   <h2 className="text-xl font-bold text-slate-800 mb-5 pb-2 border-b flex items-center gap-2">
                     <span className="bg-primary/10 text-primary w-8 h-8 rounded-full flex items-center justify-center text-sm font-black">6</span>
                     Customer Verification
                   </h2>
+
                   {isVerifying ? (
-                    <div className="flex items-center gap-2 text-slate-500 p-4 bg-slate-50 rounded-xl"><Loader2 className="w-5 h-5 animate-spin"/> Checking verification status...</div>
+                    <div className="flex items-center gap-2 text-slate-500 p-4 bg-slate-50 rounded-xl"><Loader2 className="w-5 h-5 animate-spin" /> Checking verification status...</div>
                   ) : !phoneNumber || phoneNumber.length < 10 ? (
                     <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-500">Please enter a valid mobile number in Section 1 to check verification status.</div>
                   ) : verificationStatus === "VERIFIED" ? (
@@ -483,23 +514,22 @@ export default function BookingContent() {
                     </div>
                   )}
                 </section>
-              </div>
-              <div className="p-6 sm:p-10 bg-slate-50 border-t border-slate-100 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full sm:w-auto bg-gradient-to-r from-primary to-secondary text-white font-bold px-10 py-4 rounded-xl shadow-lg shadow-primary/30 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin" /> Submitting Request...
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck className="h-5 w-5" /> Submit Booking Request
-                    </>
-                  )}
-                </button>
+
+                {/* SECTION 7: BOOKING SUBMISSION */}
+                <div className="p-6 sm:p-10 bg-slate-50 border-t border-slate-100 flex justify-end">
+                  <button type="submit" disabled={isSubmitting} className="w-full sm:w-auto bg-gradient-to-r from-primary to-secondary text-white font-bold px-10 py-4 rounded-xl shadow-lg shadow-primary/30 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none">
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" /> Submitting Request...
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="h-5 w-5" /> Submit Booking Request
+                      </>
+                    )}
+                  </button>
+                </div>
+
               </div>
             </form>
           )}

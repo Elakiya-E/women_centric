@@ -40,9 +40,6 @@ export async function POST(req: Request) {
         dlBase64: registration.drivingLicenseBase64,
         policeVerifBase64: registration.policeVerifBase64,
         certificatesBase64: registration.professionalCertBase64,
-        workingDays: registration.workingDays,
-        workingHours: registration.preferredTimeSlots,
-        preferredCities: registration.preferredCities,
         verificationStatus: "Approved",
       },
     });

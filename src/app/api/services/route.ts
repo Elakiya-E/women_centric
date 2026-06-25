@@ -6,6 +6,10 @@ export async function GET() {
   try {
     const services = await prisma.service.findMany({
       orderBy: { createdAt: "asc" },
+      include: {
+        subServices: true,
+        availability: true,
+      },
     });
     
     // Return standard array. If empty, the client receives [] allowing loading/empty state handling

@@ -2,89 +2,59 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+import { FULL_SERVICE_CATALOG } from "../src/lib/serviceData";
+
 async function main() {
   console.log("Seeding started...");
 
   // Clean existing data to ensure idempotent seeding
+  await prisma.sessionLog.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.attendantAccount.deleteMany();
+  await prisma.attendantLocation.deleteMany();
   await prisma.booking.deleteMany();
-  await prisma.service.deleteMany();
+  await prisma.customer.deleteMany();
   await prisma.attendant.deleteMany();
+  await prisma.subService.deleteMany();
+  await prisma.serviceAvailability.deleteMany();
+  await prisma.caseStudy.deleteMany();
+  await prisma.service.deleteMany();
   await prisma.offer.deleteMany();
   await prisma.article.deleteMany();
   await prisma.testimonial.deleteMany();
+  await prisma.partnerEnquiry.deleteMany();
+  await prisma.attendantRegistration.deleteMany();
 
   // 1. Services
-  const airport = await prisma.service.create({
-    data: {
-      title: "Airport Pickup & Drop",
-      description: "Safe, trusted female companions to assist you or your loved ones to/from the airport, helping with luggage and transport.",
-      startingPrice: "₹999",
-      rating: 4.9,
-      badge: "Popular",
-      iconName: "Plane",
-      gradient: "from-[#FF9E7D] to-[#E07A5F]",
-    },
-  });
-
-  const railway = await prisma.service.create({
-    data: {
-      title: "Railway Pickup & Drop",
-      description: "Dedicated female companions meeting passengers right at the platform. Ensuring secure transfers to their final destination.",
-      startingPrice: "₹799",
-      rating: 4.8,
-      badge: "Trending",
-      iconName: "Train",
-      gradient: "from-[#E07A5F] to-[#C97A8E]",
-    },
-  });
-
-  const nursing = await prisma.service.create({
-    data: {
-      title: "Nursing Care At Home",
-      description: "Qualified, empathetic female medical assistants and nurses for critical health monitoring and recovery care.",
-      startingPrice: "₹1,499/day",
-      rating: 4.9,
-      badge: "Popular",
-      iconName: "HeartPulse",
-      gradient: "from-[#E2B380] to-[#C68B59]",
-    },
-  });
-
-  const security = await prisma.service.create({
-    data: {
-      title: "Women Security Guards",
-      description: "Highly trained, alert female security professionals for private functions, corporate events, or personal safety.",
-      startingPrice: "₹1,999/day",
-      rating: 5.0,
-      badge: "Freshly Added",
-      iconName: "ShieldAlert",
-      gradient: "from-[#D87D56] to-[#B85C38]",
-    },
-  });
-
-  const hospital = await prisma.service.create({
-    data: {
-      title: "Elderly Hospital Attendants",
-      description: "Compassionate bedside assistance, medicine reminders, and companionship for elder family members in hospitals.",
-      startingPrice: "₹1,299/day",
-      rating: 4.9,
-      badge: "Popular",
-      iconName: "Award",
-      gradient: "from-[#A9AF90] to-[#828A6B]",
-    },
-  });
-
-  const driver = await prisma.service.create({
-    data: {
-      title: "Women Drivers",
-      description: "Experienced, verified professional female drivers for daily city runs, errands, or outstation family trips.",
-      startingPrice: "₹1,199/day",
-      rating: 4.8,
-      badge: "Trending",
-      iconName: "Car",
-      gradient: "from-[#EBC75A] to-[#C09A34]",
-    },
-  });
+  console.log("Seeding services from serviceData...");
+  for (const s of FULL_SERVICE_CATALOG) {
+    await prisma.service.create({
+      data: {
+        title: s.title,
+        slug: s.slug,
+        description: s.description,
+        startingPrice: s.startingPrice,
+        rating: s.rating,
+        badge: s.badge,
+        iconName: s.iconName,
+        gradient: s.gradient,
+        categorySlug: s.categorySlug,
+        isPremium: s.isPremium || false,
+        subServices: {
+          create: s.subServices.map(sub => ({
+            title: sub.title,
+            description: sub.description || "",
+            price: sub.price || "",
+          })),
+        },
+        availability: {
+          create: {
+            cities: s.availableCities,
+          },
+        },
+      },
+    });
+  }
 
   console.log("Services seeded!");
 

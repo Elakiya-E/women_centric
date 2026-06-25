@@ -38,6 +38,9 @@ interface DBService {
   badge: string;
   iconName: string;
   gradient: string;
+  availability?: {
+    cities: string[];
+  };
 }
 
 const addOnsList = [
@@ -69,6 +72,19 @@ export default function BookingFlow({ selectedServiceId }: BookingFlowProps) {
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
   const [duration, setDuration] = useState(1);
+
+  // Phase 2: Enhanced Booking state
+  const [receiverName, setReceiverName] = useState("");
+  const [receiverRelation, setReceiverRelation] = useState("Self");
+  const [receiverGender, setReceiverGender] = useState("Female");
+  const [receiverAge, setReceiverAge] = useState("");
+  const [specialMedicalReqs, setSpecialMedicalReqs] = useState("");
+  const [acknowledgement, setAcknowledgement] = useState(false);
+
+  // City-service availability validation
+  const isServiceAvailableInCity = selectedService?.availability?.cities
+    ? selectedService.availability.cities.includes(city)
+    : true;
 
   // Verification States
   const [verificationStatus, setVerificationStatus] = useState<string>("NEW");
@@ -190,6 +206,18 @@ export default function BookingFlow({ selectedServiceId }: BookingFlowProps) {
         alert("Please pin your exact location on the map.");
         return;
       }
+      if (!isServiceAvailableInCity) {
+        alert(`The selected service "${selectedService?.title}" is currently unavailable in ${city}. Please choose another city or service.`);
+        return;
+      }
+      if (!receiverName.trim()) {
+        alert("Please enter the Service Receiver Name.");
+        return;
+      }
+      if (!receiverAge.trim()) {
+        alert("Please enter the Service Receiver Age.");
+        return;
+      }
       
       setIsVerifying(true);
       fetch(`/api/customers/verify?phone=${encodeURIComponent(phoneNumber)}`)
@@ -272,6 +300,13 @@ export default function BookingFlow({ selectedServiceId }: BookingFlowProps) {
           requirement: requirementText,
           latitude: lat,
           longitude: lng,
+          receiverName,
+          receiverRelation,
+          receiverGender,
+          receiverAge: receiverAge ? parseInt(receiverAge) : null,
+          specialMedicalReqs,
+          providerPreference: "Only Women",
+          acknowledgement
         }),
       });
 
@@ -422,10 +457,16 @@ export default function BookingFlow({ selectedServiceId }: BookingFlowProps) {
                   className="space-y-6"
                 >
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <HeartHandshake className="text-primary h-5 w-5" />
-                      Step 1: Choose Service & Details
-                    </h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                      <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                        <HeartHandshake className="text-primary h-5 w-5" />
+                        Step 1: Choose Service & Details
+                      </h3>
+                      <div className="flex items-center gap-1.5 text-xs font-black bg-purple-100 text-purple-700 border border-purple-200 px-3.5 py-2 rounded-full shrink-0">
+                        <ShieldCheck className="h-4 w-4" />
+                        Provider: Only Women
+                      </div>
+                    </div>
                     
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div>
@@ -542,7 +583,6 @@ export default function BookingFlow({ selectedServiceId }: BookingFlowProps) {
                         className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
                         <Building className="h-4 w-4 text-gray-400" /> Metropolitan City
@@ -554,9 +594,14 @@ export default function BookingFlow({ selectedServiceId }: BookingFlowProps) {
                       >
                         <option value="Bengaluru">Bengaluru</option>
                         <option value="Chennai">Chennai</option>
-                        <option value="Hyderabad">Hyderabad</option>
                         <option value="Coimbatore">Coimbatore</option>
+                        <option value="Madurai">Madurai</option>
                       </select>
+                      {!isServiceAvailableInCity && (
+                        <div className="mt-2 text-xs font-bold text-rose-600 bg-rose-50 p-2 rounded-lg border border-rose-200 flex items-center gap-1">
+                          ✕ Service unavailable in {city}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
@@ -568,6 +613,77 @@ export default function BookingFlow({ selectedServiceId }: BookingFlowProps) {
                         value={providedId}
                         onChange={(e) => setProvidedId(e.target.value)}
                         className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Service Receiver Details */}
+                  <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                    <h4 className="font-bold text-gray-800 text-sm border-b pb-2 flex items-center gap-2">
+                      <User className="h-4.5 w-4.5 text-primary" />
+                      Service Receiver Details
+                    </h4>
+                    
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Receiver Name</label>
+                        <input
+                          type="text"
+                          placeholder="Name of the person receiving care"
+                          value={receiverName}
+                          onChange={(e) => setReceiverName(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Relationship to Customer</label>
+                        <select
+                          value={receiverRelation}
+                          onChange={(e) => setReceiverRelation(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all cursor-pointer"
+                        >
+                          <option value="Self">Self</option>
+                          <option value="Parent">Parent</option>
+                          <option value="Spouse">Spouse</option>
+                          <option value="Child">Child</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Gender</label>
+                        <select
+                          value={receiverGender}
+                          onChange={(e) => setReceiverGender(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all cursor-pointer"
+                        >
+                          <option value="Female">Female</option>
+                          <option value="Male">Male</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Age</label>
+                        <input
+                          type="number"
+                          placeholder="Age of the receiver"
+                          value={receiverAge}
+                          onChange={(e) => setReceiverAge(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Special Medical or Care Requirements</label>
+                      <textarea
+                        rows={2}
+                        placeholder="E.g., Assistance needed with wheelchair, diabetes management, non-verbal..."
+                        value={specialMedicalReqs}
+                        onChange={(e) => setSpecialMedicalReqs(e.target.value)}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
                       />
                     </div>
                   </div>
@@ -746,6 +862,18 @@ export default function BookingFlow({ selectedServiceId }: BookingFlowProps) {
                     </div>
 
                     <div className="flex justify-between border-b pb-3">
+                      <span className="font-semibold text-gray-600">Service Receiver:</span>
+                      <span className="font-bold text-gray-900">{receiverName} ({receiverRelation}, {receiverGender}, {receiverAge} yrs)</span>
+                    </div>
+
+                    {specialMedicalReqs && (
+                      <div className="flex justify-between border-b pb-3">
+                        <span className="font-semibold text-gray-600">Care Requirements:</span>
+                        <span className="font-bold text-gray-900 text-right">{specialMedicalReqs}</span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between border-b pb-3">
                       <span className="font-semibold text-gray-600">Scheduled Time:</span>
                       <span className="font-bold text-gray-900">{date} at {time}</span>
                     </div>
@@ -778,6 +906,29 @@ export default function BookingFlow({ selectedServiceId }: BookingFlowProps) {
                         <span className="text-primary text-xl">₹{totalAmount}</span>
                       </div>
                     </div>
+                  </div>
+                  
+                  {/* Booking Acknowledgement & Provider preference display */}
+                  <div className="space-y-4 mt-6">
+                    <div className="flex items-center justify-between p-4 bg-purple-50 rounded-xl border border-purple-100">
+                      <span className="text-sm font-bold text-purple-950 flex items-center gap-1.5">
+                        <ShieldCheck className="h-5 w-5 text-primary" />
+                        Selected Provider Type:
+                      </span>
+                      <span className="text-sm font-black text-primary">Only Women</span>
+                    </div>
+
+                    <label className="flex items-start gap-3 bg-white p-4 rounded-xl border border-gray-200 cursor-pointer hover:border-purple-200 transition-colors">
+                      <input 
+                        type="checkbox" 
+                        checked={acknowledgement} 
+                        onChange={(e) => setAcknowledgement(e.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                      />
+                      <span className="text-sm font-semibold text-gray-700 leading-relaxed">
+                        I confirm that I understand this platform provides women service professionals.
+                      </span>
+                    </label>
                   </div>
                 </motion.div>
               )}
@@ -944,7 +1095,7 @@ export default function BookingFlow({ selectedServiceId }: BookingFlowProps) {
               ) : (
                 <button
                   onClick={handleSubmitBooking}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !acknowledgement || !isServiceAvailableInCity}
                   className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-indigo-700 text-white font-bold px-8 py-3.5 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 cursor-pointer disabled:opacity-50"
                 >
                   {isSubmitting ? (
